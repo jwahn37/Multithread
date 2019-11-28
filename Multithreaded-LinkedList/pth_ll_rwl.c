@@ -67,13 +67,6 @@ int         Delete(int value);
 void        Free_list(void);
 int         Is_empty(void);
 
-/* first read-writers locks*/
-void first_rwlock_init();
-void first_rwlock_wrlock();
-void first_rwlock_wrunlock();
-void first_rwlock_rdlock();
-void first_rwlock_rdunlock();
-
 /*-----------------------------------------------------------------*/
 int main(int argc, char* argv[]) {
    long i; 
@@ -108,9 +101,6 @@ int main(int argc, char* argv[]) {
    thread_handles = malloc(thread_count*sizeof(pthread_t));
    pthread_mutex_init(&count_mutex, NULL);
    pthread_rwlock_init(&rwlock, NULL);
-
-   /* first read write lock init */
-   first_rwlock_init();
 
    GET_TIME(start);
    for (i = 0; i < thread_count; i++)
@@ -303,25 +293,19 @@ void* Thread_work(void* rank) {
       which_op = my_drand(&seed);
       val = my_rand(&seed) % MAX_KEY;
       if (which_op < search_percent) {
-       //  pthread_rwlock_rdlock(&rwlock);
-         first_rwlock_rdlock();
+         pthread_rwlock_rdlock(&rwlock);
          Member(val);
-      //   pthread_rwlock_unlock(&rwlock);
-         first_rwlock_rdunlock();
+         pthread_rwlock_unlock(&rwlock);
          my_member_count++;
       } else if (which_op < search_percent + insert_percent) {
-      //   pthread_rwlock_wrlock(&rwlock);
-         first_rwlock_wrlock();
+         pthread_rwlock_wrlock(&rwlock);
          Insert(val);
-      //   pthread_rwlock_unlock(&rwlock);
-         first_rwlock_wrunlock();
+         pthread_rwlock_unlock(&rwlock);
          my_insert_count++;
       } else { /* delete */
-      //   pthread_rwlock_wrlock(&rwlock);
-         first_rwlock_wrlock();
+         pthread_rwlock_wrlock(&rwlock);
          Delete(val);
-      //   pthread_rwlock_unlock(&rwlock);
-         first_rwlock_wrunlock();
+         pthread_rwlock_unlock(&rwlock);
          my_delete_count++;
       }
    }  /* for */
@@ -334,88 +318,3 @@ void* Thread_work(void* rank) {
 
    return NULL;
 }  /* Thread_work */
-
-pthread_mutex_t wrlock, rdlock;
-pthread_cond_t wrt;//, rd;
-int readcount;
-int writecount;
-
-void first_rwlock_init()
-{
-   pthread_mutex_init(&rdlock, NULL);
-   pthread_mutex_init(&wrlock, NULL);
-   pthread_cond_init(&wrt, NULL);
-  // pthread_cond_init(&rd, NULL);
-   readcount=0;
-   writecount=0;
-}
-
-void first_rwlock_wrlock()
-{
-   printf("wrlock %d %d\n", writecount, readcount);
-   //writecount++;   //왜 여기서 올리면 안될까?
-   pthread_mutex_lock(&wrlock);
-   while(readcount>=1 || writecount>0)  pthread_cond_wait(&wrt, &wrlock);
-  // pthread_mutex_unlock(&wrlock);
-   writecount++;
-
-}
-
-void first_rwlock_wrunlock()
-{
-   printf("wrunlock %d %d\n", writecount, readcount);
-
-   writecount--;
-   //printf("%d\n", writecount);
-   pthread_cond_signal(&wrt);
-   pthread_mutex_unlock(&wrlock);
-}
-
-void first_rwlock_rdlock()
-{
-   printf("rdlock %d %d\n", writecount, readcount);
-
-   //read는 한번에 한개만 통과한다.
-   pthread_mutex_lock(&rdlock);
-   
-   
-   readcount++;
-   
-   //write가 lock을 잡고있으면 못통과함.
-  // while(writecount>1 || readcount>1)  pthread_cond_wait(&wrt, &wrlock);
-   //while(readcount>1)  pthread_cond_wait(&wrt, &wrlock);
-   
-   //write가 돌고있으면 read는 기다려야한다.
-   if(readcount==1)
-   {
-      pthread_mutex_lock(&wrlock);
-      while(writecount>1)  pthread_cond_wait(&wrt, &wrlock);
-   }
-
-   pthread_mutex_unlock(&rdlock);
-}
-
-void first_rwlock_rdunlock()
-{
-   printf("rdunlock %d %d\n", writecount, readcount);
-
-   pthread_mutex_lock(&rdlock);
-   
-   readcount--;
-  // printf("%d\n", readcount);
- //  while(readcount==0)  pthread_cond_signal(&wrt);
-   //마지막 reader가 나갈때 write깨운다.
-   if(readcount==0)  
-   {
-      pthread_cond_signal(&wrt);
-      pthread_mutex_unlock(&wrlock);
-   }
-
-   pthread_mutex_unlock(&rdlock);
-}
-
-/*
-conditaion variable을 어떻게 이용해야 하는지 모르겠다..
-그냥 semaphore쓰고 싶다.
-
-*/
