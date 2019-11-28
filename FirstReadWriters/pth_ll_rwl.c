@@ -31,6 +31,11 @@
 #include "my_rand.h"
 #include "timer.h"
 
+
+//Conditional Variables: https://computing.llnl.gov/tutorials/pthreads/#ConditionVariables
+//First Readers-Writers Problem: https://en.wikipedia.org/wiki/Readers%E2%80%93writers_problem#First_readers-writers_problem
+//Reader가 writer을 starvation시키는 문제점 존재
+
 /* Random ints are less than MAX_KEY */
 const int MAX_KEY = 100000000;
 
@@ -352,28 +357,26 @@ void first_rwlock_init()
 
 void first_rwlock_wrlock()
 {
-   printf("wrlock %d %d\n", writecount, readcount);
+   //printf("wrlock %d %d\n", writecount, readcount);
    //writecount++;   //왜 여기서 올리면 안될까?
-   pthread_mutex_lock(&wrlock);
-   while(readcount>=1 || writecount>0)  pthread_cond_wait(&wrt, &wrlock);
-  // pthread_mutex_unlock(&wrlock);
-   writecount++;
+   pthread_mutex_lock(&wrlock);  //반드시 미리 lock걸어야함.
+   while(readcount>=1 || writecount>0)  pthread_cond_wait(&wrt, &wrlock);  //mutex unlock 후 sleep, 나중에 signal받으면 mutex lock걸고 나옴
+   writecount++;  //얘는 반드시 이위치 왠진 모르겠다.
 
 }
 
 void first_rwlock_wrunlock()
 {
-   printf("wrunlock %d %d\n", writecount, readcount);
+   //printf("wrunlock %d %d\n", writecount, readcount);
 
    writecount--;
-   //printf("%d\n", writecount);
-   pthread_cond_signal(&wrt);
-   pthread_mutex_unlock(&wrlock);
+   pthread_cond_signal(&wrt); //signal 보낸다.(이때 mutex lock상태이어야한다.)
+   pthread_mutex_unlock(&wrlock);   //siganl보내고 반드시 unlock한다.
 }
 
 void first_rwlock_rdlock()
 {
-   printf("rdlock %d %d\n", writecount, readcount);
+   //printf("rdlock %d %d\n", writecount, readcount);
 
    //read는 한번에 한개만 통과한다.
    pthread_mutex_lock(&rdlock);
@@ -397,7 +400,7 @@ void first_rwlock_rdlock()
 
 void first_rwlock_rdunlock()
 {
-   printf("rdunlock %d %d\n", writecount, readcount);
+   //printf("rdunlock %d %d\n", writecount, readcount);
 
    pthread_mutex_lock(&rdlock);
    
