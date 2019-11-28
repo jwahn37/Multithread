@@ -308,24 +308,18 @@ void* Thread_work(void* rank) {
       which_op = my_drand(&seed);
       val = my_rand(&seed) % MAX_KEY;
       if (which_op < search_percent) {
-       //  pthread_rwlock_rdlock(&rwlock);
          first_rwlock_rdlock();
          Member(val);
-      //   pthread_rwlock_unlock(&rwlock);
          first_rwlock_rdunlock();
          my_member_count++;
       } else if (which_op < search_percent + insert_percent) {
-      //   pthread_rwlock_wrlock(&rwlock);
          first_rwlock_wrlock();
          Insert(val);
-      //   pthread_rwlock_unlock(&rwlock);
          first_rwlock_wrunlock();
          my_insert_count++;
       } else { /* delete */
-      //   pthread_rwlock_wrlock(&rwlock);
          first_rwlock_wrlock();
          Delete(val);
-      //   pthread_rwlock_unlock(&rwlock);
          first_rwlock_wrunlock();
          my_delete_count++;
       }
@@ -350,25 +344,20 @@ void first_rwlock_init()
    pthread_mutex_init(&rdlock, NULL);
    pthread_mutex_init(&wrlock, NULL);
    pthread_cond_init(&wrt, NULL);
-  // pthread_cond_init(&rd, NULL);
    readcount=0;
    writecount=0;
 }
 
 void first_rwlock_wrlock()
 {
-   //printf("wrlock %d %d\n", writecount, readcount);
-   //writecount++;   //왜 여기서 올리면 안될까?
    pthread_mutex_lock(&wrlock);  //반드시 미리 lock걸어야함.
    while(readcount>=1 || writecount>0)  pthread_cond_wait(&wrt, &wrlock);  //mutex unlock 후 sleep, 나중에 signal받으면 mutex lock걸고 나옴
-   writecount++;  //얘는 반드시 이위치 왠진 모르겠다.
+   writecount++;  
 
 }
 
 void first_rwlock_wrunlock()
 {
-   //printf("wrunlock %d %d\n", writecount, readcount);
-
    writecount--;
    pthread_cond_signal(&wrt); //signal 보낸다.(이때 mutex lock상태이어야한다.)
    pthread_mutex_unlock(&wrlock);   //siganl보내고 반드시 unlock한다.
@@ -376,49 +365,28 @@ void first_rwlock_wrunlock()
 
 void first_rwlock_rdlock()
 {
-   //printf("rdlock %d %d\n", writecount, readcount);
-
    //read는 한번에 한개만 통과한다.
    pthread_mutex_lock(&rdlock);
-   
-   
    readcount++;
-   
-   //write가 lock을 잡고있으면 못통과함.
-  // while(writecount>1 || readcount>1)  pthread_cond_wait(&wrt, &wrlock);
-   //while(readcount>1)  pthread_cond_wait(&wrt, &wrlock);
-   
+   //write가 lock을 잡고있으면 못통과함.   
    //write가 돌고있으면 read는 기다려야한다.
    if(readcount==1)
    {
       pthread_mutex_lock(&wrlock);
       while(writecount>1)  pthread_cond_wait(&wrt, &wrlock);
    }
-
    pthread_mutex_unlock(&rdlock);
 }
 
 void first_rwlock_rdunlock()
 {
-   //printf("rdunlock %d %d\n", writecount, readcount);
-
    pthread_mutex_lock(&rdlock);
-   
    readcount--;
-  // printf("%d\n", readcount);
- //  while(readcount==0)  pthread_cond_signal(&wrt);
    //마지막 reader가 나갈때 write깨운다.
    if(readcount==0)  
    {
       pthread_cond_signal(&wrt);
       pthread_mutex_unlock(&wrlock);
    }
-
    pthread_mutex_unlock(&rdlock);
 }
-
-/*
-conditaion variable을 어떻게 이용해야 하는지 모르겠다..
-그냥 semaphore쓰고 싶다.
-
-*/

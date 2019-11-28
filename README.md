@@ -1,6 +1,6 @@
 Parallel/Distributed Computing Assignment #2
 
-2. Multithreaded Programming (30 Points)
+Multithreaded Programming (30 Points)
 
 -RWlock_pthread: 기존 RW Lock을 통해 linked list 동기화 실험을 수행하는 프로그램이 저장된다.
 -FirstReadWriters: 구현한 First ReadWriters 을 통해 linked list 동기화 실험을 수행하는 프로그램이 저장된다.
